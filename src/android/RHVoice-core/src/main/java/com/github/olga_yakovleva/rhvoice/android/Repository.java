@@ -15,8 +15,9 @@
 
 package com.github.olga_yakovleva.rhvoice.android;
 
+import static com.github.olga_yakovleva.rhvoice.android.DataPack.close;
+
 import android.content.Context;
-import android.os.SystemClock;
 import android.util.Log;
 
 import androidx.annotation.MainThread;
@@ -29,25 +30,24 @@ import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
 
 import com.github.olga_yakovleva.rhvoice.TTSEngine;
-import com.google.common.base.MoreObjects;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.Moshi;
 
+import java.io.BufferedInputStream;
 import java.io.File;
-import java.io.FileNotFoundException;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
-import java.util.concurrent.ExecutorService;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-
-import okio.BufferedSource;
-import okio.Okio;
 
 import java.io.InputStreamReader;
 
@@ -116,10 +116,84 @@ final class Repository {
             return false;
         final PackageDirectory dir = jsonAdapter.fromJson(str);
         dir.nextUpdateTime = Instant.now().plusSeconds(dir.localTtl);
+        mergeWithFS(dir);
         dir.index();
         pkgDir = dir;
         pkgDirLiveData.postValue(dir);
         return true;
+    }
+
+    private void appendVoiceResource(File dir, List<LanguageResource> languages) {
+        File file = new File(dir, "voice.info");
+        if (!file.exists()) return;
+        InputStreamReader reader = null;
+        try {
+            reader = new InputStreamReader(new BufferedInputStream(new FileInputStream(file)), "utf-8");
+
+            Properties props = new Properties();
+            props.load(reader);
+
+            VoiceResource res = new VoiceResource();
+            res.name = props.getProperty("name");
+            if (res.name == null)
+                return;
+            res.id = res.name.toLowerCase();
+
+            String language = props.getProperty("language");
+            if (language == null)
+                return;
+
+            LanguageResource lang = null;
+            for (LanguageResource ll : languages) {
+                if (ll.name.equalsIgnoreCase(language)) {
+                    for (VoiceResource vv : ll.voices) {
+                        if (res.name.equals(vv.name)) {
+
+                            return; // voice already exist
+                        }
+                    }
+                    lang = ll;
+                    res.ctry2code = ll.lang2code.toUpperCase();
+                    res.ctry3code = ll.lang3code.toUpperCase();
+                }
+            }
+
+            if (lang == null)
+                return; // language not found
+
+            String format = props.getProperty("format");
+            if (format == null)
+                return;
+            String revision = props.getProperty("revision");
+            if (revision == null)
+                return;
+            try {
+                res.version.major = Integer.parseInt(format);
+                res.version.minor = Integer.parseInt(revision);
+            } catch (NumberFormatException e) {
+                return;
+            }
+
+            res.dataMd5 = "EXTERNAL_INSTALL";
+
+            if (!(lang.voices instanceof ArrayList))
+                lang.voices = new ArrayList<>(lang.voices);
+            lang.voices.add(res);
+        } catch (IOException ignored) {
+        } finally {
+            close(reader);
+        }
+    }
+
+    private void mergeWithFS(PackageDirectory dir) {
+        final File data = new File(context.getExternalCacheDir(), "data");
+        final File[] list = data.listFiles();
+        if (list != null) {
+            for (File file : list) {
+                if (file.isDirectory())
+                    appendVoiceResource(file, dir.languages);
+            }
+        }
     }
 
     private String getPackageDirFromResources() throws IOException {

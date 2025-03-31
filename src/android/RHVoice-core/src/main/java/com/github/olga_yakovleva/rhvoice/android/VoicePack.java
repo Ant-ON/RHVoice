@@ -60,7 +60,7 @@ public final class VoicePack extends DataPack {
 
     @Override
     public final boolean getEnabled(Context context) {
-        return getPrefs(context).getBoolean(getEnabledKey(), getPackageInfo(context) != null);
+        return getPrefs(context).getBoolean(getEnabledKey(), getPackageInfo(context) != null) || "EXTERNAL_INSTALL".equals(res.dataMd5);
     }
 
     public final void setEnabled(Context context, boolean value) {
