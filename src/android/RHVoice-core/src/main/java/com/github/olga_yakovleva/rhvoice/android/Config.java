@@ -36,7 +36,7 @@ public final class Config {
         if (dir == null) {
             if (BuildConfig.DEBUG)
                 Log.d(TAG, "The private external storage directory does not exist");
-            return context.getDir("config", 0);
+            return new File(context.getExternalCacheDir(), "config");
         }
         if (BuildConfig.DEBUG)
             Log.d(TAG, "The path to the private external storage directory is " + dir.getAbsolutePath());

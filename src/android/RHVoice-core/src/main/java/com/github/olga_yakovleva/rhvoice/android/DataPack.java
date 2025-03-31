@@ -164,15 +164,17 @@ public abstract class DataPack {
     }
 
     protected final File getDataDir(Context context) {
-        return context.getDir("data", 0).getAbsoluteFile();
+        File data = new File(context.getExternalCacheDir(), "data");
+        data.mkdirs();
+        return data;
     }
 
     protected final File getTempDir(Context context) {
-        return context.getDir("tmp-" + getType() + "-" + getId(), 0);
+        return new File(context.getExternalCacheDir(), "tmp-" + getType() + "-" + getId());
     }
 
     private File getDownloadsDir(Context context) {
-        return context.getDir("downloads-" + getType() + "-" + getId(), 0);
+        return new File(context.getExternalCacheDir(), "downloads-" + getType() + "-" + getId());
     }
 
     private File getDownloadFile(Context context) {
