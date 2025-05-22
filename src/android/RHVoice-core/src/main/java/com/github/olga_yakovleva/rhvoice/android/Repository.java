@@ -186,7 +186,7 @@ final class Repository {
     }
 
     private void mergeWithFS(PackageDirectory dir) {
-        final File data = new File(context.getExternalCacheDir(), "data");
+        final File data = context.getDir("data", 0);
         final File[] list = data.listFiles();
         if (list != null) {
             for (File file : list) {
